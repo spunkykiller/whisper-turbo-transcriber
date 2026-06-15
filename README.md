@@ -70,11 +70,11 @@ Whisper Turbo Transcriber is designed to support a simple, automated environment
 ### Command Line Mode (Alternative)
 For batch-scripting or simple CLI execution:
 1.  Open PowerShell in the project directory.
-2.  Run the standalone transcription script:
+2.  Run the standalone transcription script by passing the path to your audio/video file:
     ```powershell
-    Code\venv\Scripts\python.exe transcribe.py
+    Code\venv\Scripts\python.exe transcribe.py "C:\path\to\your\audio_or_video.mp4"
     ```
-    *Note: Edit `transcribe.py` directly to adjust the `VIDEO_PATH` variable to point to any video or audio file on your machine.*
+    *(If no argument is passed, it will look for a default `test_video.mp4` in the project directory)*
 
 ---
 
