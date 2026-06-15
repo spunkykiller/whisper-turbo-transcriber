@@ -101,7 +101,12 @@ def _get_ffmpeg() -> str:
         try:
             _ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
         except Exception:
-            _ffmpeg_path = r"C:\Users\Manish\AppData\Local\Programs\Stremio\ffmpeg.exe"
+            user_profile = os.environ.get('USERPROFILE', os.path.expanduser('~'))
+            stremio_ffmpeg = os.path.join(user_profile, 'AppData', 'Local', 'Programs', 'Stremio', 'ffmpeg.exe')
+            if os.path.exists(stremio_ffmpeg):
+                _ffmpeg_path = stremio_ffmpeg
+            else:
+                _ffmpeg_path = 'ffmpeg'
     return _ffmpeg_path
 
 
