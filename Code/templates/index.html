@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whisper Transcription Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Whisper Transcription Dashboard</h1>
+      <p class="subtitle">Drop video or audio files to transcribe with Whisper Large-v3</p>
+    </header>
+
+    <div id="drop-zone">
+      <div class="drop-content">
+        <svg class="icon" viewBox="0 0 24 24" width="64" height="64">
+          <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+          <path fill="currentColor" d="M12 11v4h-2l3 3 3-3h-2v-4h-2z"/>
+        </svg>
+        <p class="drop-text">Drag &amp; drop files here</p>
+        <p class="drop-hint">or click to browse</p>
+        <p class="drop-formats">Video: MP4, MOV, AVI, MKV &middot; Audio: MP3, WAV, M4A, FLAC</p>
+      </div>
+      <input type="file" id="file-input" multiple
+             accept="video/*,audio/*,.mp4,.mov,.avi,.mkv,.webm,.m4v,.wmv,.flv,.mp3,.wav,.m4a,.ogg,.flac,.wma" hidden>
+    </div>
+
+    <div id="file-list-container" class="hidden">
+      <p class="section-title">Files</p>
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="file-tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="empty-state">
+      <p>No files yet — drop videos or audio files above to get started.</p>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const tbody      = document.getElementById('file-tbody');
+  const emptyState = document.getElementById('empty-state');
+  const listWrap   = document.getElementById('file-list-container');
+
+  // ------------------------------------------------------------------
+  // Drag / click handling
+  // ------------------------------------------------------------------
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => {
+    dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); });
+  });
+  ['dragenter', 'dragover'].forEach(ev => {
+    dropZone.addEventListener(ev, () => dropZone.classList.add('dragover'));
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover'));
+  });
+
+  dropZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) upload(e.dataTransfer.files);
+  });
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) upload(fileInput.files);
+    fileInput.value = '';
+  });
+
+  // ------------------------------------------------------------------
+  // Upload
+  // ------------------------------------------------------------------
+  function upload(fileList) {
+    const fd = new FormData();
+    for (const f of fileList) fd.append('files', f);
+    fetch('/upload', { method: 'POST', body: fd }).catch(() => {});
+  }
+
+  // ------------------------------------------------------------------
+  // Status polling
+  // ------------------------------------------------------------------
+  function escape(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  const STATUS_CLASS = {
+    queued:       'status-queued',
+    extracting:   'status-extracting',
+    transcribing: 'status-transcribing',
+    done:         'status-done',
+    error:        'status-error',
+  };
+
+  function updateRow(name, status, progress, transcriptPath, errorMsg) {
+    const id = 'row-' + name.replace(/[^a-zA-Z0-9\-_. ]/g, '_');
+    let tr = document.getElementById(id);
+
+    if (!tr) {
+      tr = document.createElement('tr');
+      tr.id = id;
+      tr.innerHTML =
+        '<td class="file-name"></td>' +
+        '<td><span class="status-badge"></span></td>' +
+        '<td><div class="progress-bar"><div class="progress-fill"></div></div></td>' +
+        '<td class="file-action"></td>';
+      tbody.appendChild(tr);
+      emptyState.classList.add('hidden');
+      listWrap.classList.remove('hidden');
+    }
+
+    tr.querySelector('.file-name').textContent = name;
+
+    const badge = tr.querySelector('.status-badge');
+    badge.className = 'status-badge ' + (STATUS_CLASS[status] || 'status-queued');
+    badge.textContent = status;
+
+    tr.querySelector('.progress-fill').style.width = progress + '%';
+
+    const action = tr.querySelector('.file-action');
+    if (status === 'done' && transcriptPath) {
+      const fn = transcriptPath.split('\\').pop().split('/').pop();
+      action.innerHTML = '<a href="/transcript/' + encodeURIComponent(fn) + '" target="_blank" class="btn-link">View Transcript</a>';
+    } else if (status === 'error') {
+      action.innerHTML = '<span class="error-msg" title="' + escape(errorMsg || '') + '">Error</span>';
+    } else {
+      action.innerHTML = '';
+    }
+  }
+
+  function poll() {
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        let active = false;
+        for (const [name, info] of Object.entries(data)) {
+          updateRow(name, info.status, info.progress, info.transcript_path, info.error);
+          if (info.status !== 'done' && info.status !== 'error') active = true;
+        }
+      })
+      .catch(() => {});
+  }
+
+  setInterval(poll, 2000);
+  poll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Python environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local uploads
+Code/uploads/*
+
+# Generated outputs
+Outputs/*
+!Outputs/.gitkeep
+
+# System files
+.DS_Store
+Thumbs.db
